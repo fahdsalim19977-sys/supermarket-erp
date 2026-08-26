@@ -6,7 +6,6 @@ from flask_wtf.csrf import CSRFProtect
 
 from config import Config
 
-
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
@@ -27,10 +26,12 @@ def create_app(config_class=Config):
     from app.main import main_bp
     from app.products import products_bp
     from app.pos import pos_bp
+    from app.routes.shifts import shifts_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(pos_bp)
+    app.register_blueprint(shifts_bp)
 
     with app.app_context():
         from app import models  # noqa: F401

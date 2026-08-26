@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}المنتجات والمخزون{% endblock %}
+{% block body %}
+<div class="nav"><strong>NQ Supermarket ERP</strong><div><a href="{{ url_for('main.dashboard') }}">لوحة التحكم</a> | <a href="{{ url_for('products.create') }}">منتج جديد</a></div></div>
+<div class="container">
+  <h1>المنتجات والمخزون</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="alert">{{ message }}</div>{% endfor %}{% endwith %}
+  <form method="get" style="display:flex;gap:8px;margin-bottom:20px"><input class="input" name="q" value="{{ q }}" placeholder="بحث بالاسم أو SKU"><button class="btn">بحث</button></form>
+  <div class="card" style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th>SKU</th><th>المنتج</th><th>التصنيف</th><th>الوحدة</th><th>سعر البيع</th><th>المخزون</th><th>تعديل</th></tr></thead><tbody>
+  {% for product in products %}
+    {% set stock = namespace(total=0) %}{% for s in product.stocks %}{% set stock.total = stock.total + s.quantity %}{% endfor %}
+    <tr><td>{{ product.sku }}</td><td>{{ product.name_ar }}</td><td>{{ product.category.name_ar }}</td><td>{{ product.unit.name_ar }}</td><td>{{ product.selling_price }} EGP</td><td>{{ stock.total }}</td><td><details><summary>تعديل</summary><form method="post" action="{{ url_for('products.stock_adjustment', product_id=product.id) }}" style="margin-top:8px"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select class="input" name="warehouse_id" required><option value="">المخزن</option>{% for w in warehouses %}<option value="{{ w.id }}">{{ w.name }} — {{ w.branch.name }}</option>{% endfor %}</select><input class="input" name="quantity" placeholder="+10 أو -2" required><input class="input" name="reason" placeholder="السبب"><button class="btn">حفظ</button></form></details></td></tr>
+  {% else %}<tr><td colspan="7">لا توجد منتجات.</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endblock %}

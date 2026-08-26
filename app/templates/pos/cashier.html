@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-3" dir="rtl">
+  <div class="row g-3">
+    <div class="col-xl-8">
+      <div class="card shadow-sm"><div class="card-body">
+        <div class="row g-2"><div class="col-md-9"><input id="barcode" class="form-control form-control-lg" autofocus placeholder="باركود / بحث"></div><div class="col-md-3"><button id="newSale" class="btn btn-outline-secondary btn-lg w-100">فاتورة جديدة</button></div></div>
+        <div id="message" class="mt-2 small"></div>
+        <div class="table-responsive mt-3"><table class="table align-middle"><thead><tr><th>المنتج</th><th>السعر</th><th>الكمية</th><th>الإجمالي</th><th></th></tr></thead><tbody id="cart"></tbody></table></div>
+      </div></div>
+    </div>
+    <div class="col-xl-4"><div class="card shadow-sm"><div class="card-body">
+      <h5>ملخص الفاتورة</h5><div class="d-flex justify-content-between mt-3"><span>الإجمالي الفرعي</span><strong id="subtotal">0.00</strong></div>
+      <div class="d-flex justify-content-between mt-2"><span>الخصم</span><input id="discount" type="number" min="0" step="0.01" value="0" class="form-control form-control-sm w-50 text-start"></div>
+      <div class="d-flex justify-content-between mt-2"><span>الضريبة</span><input id="tax" type="number" min="0" step="0.01" value="0" class="form-control form-control-sm w-50 text-start"></div>
+      <hr><div class="d-flex justify-content-between"><h4>الإجمالي</h4><h4 id="total">0.00 EGP</h4></div>
+      <button class="btn btn-success btn-lg w-100 mt-3" id="pay">دفع وإصدار الفاتورة</button>
+    </div></div></div>
+  </div>
+</div>
+<script>
+const cart=[]; const el=id=>document.getElementById(id);
+function render(){const subtotal=cart.reduce((s,x)=>s+x.price*x.qty,0), discount=Number(el('discount').value)||0, tax=Number(el('tax').value)||0, total=Math.max(0,subtotal-discount+tax); el('subtotal').textContent=subtotal.toFixed(2); el('total').textContent=total.toFixed(2)+' EGP'; el('cart').innerHTML=cart.map((x,i)=>`<tr><td>${x.name}</td><td>${x.price.toFixed(2)}</td><td><div class="btn-group"><button class="btn btn-sm btn-outline-secondary" onclick="changeQty(${i},-1)">−</button><span class="btn btn-sm btn-light">${x.qty}</span><button class="btn btn-sm btn-outline-secondary" onclick="changeQty(${i},1)">+</button></div></td><td>${(x.price*x.qty).toFixed(2)}</td><td><button class="btn btn-sm btn-outline-danger" onclick="removeItem(${i})">حذف</button></td></tr>`).join('')}
+function changeQty(i,d){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);render()} function removeItem(i){cart.splice(i,1);render()}
+async function lookup(){const b=el('barcode').value.trim();if(!b)return;try{const r=await fetch(`/api/pos/lookup?barcode=${encodeURIComponent(b)}`);const j=await r.json();if(!r.ok)throw new Error(j.error||'المنتج غير موجود');const p=j.data,x=cart.find(x=>x.id===p.id);if(x)x.qty++;else cart.push({id:p.id,name:p.name_ar,price:Number(p.price),qty:1});el('message').className='mt-2 small text-success';el('message').textContent='تمت إضافة المنتج';}catch(e){el('message').className='mt-2 small text-danger';el('message').textContent=e.message}finally{el('barcode').value='';el('barcode').focus();render()}}
+el('barcode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lookup()}});['discount','tax'].forEach(id=>el(id).addEventListener('input',render));el('newSale').onclick=()=>{cart.splice(0);el('discount').value=0;el('tax').value=0;render();el('barcode').focus()};
+el('pay').onclick=async()=>{if(!cart.length)return alert('السلة فارغة');const subtotal=cart.reduce((s,x)=>s+x.price*x.qty,0),discount=Number(el('discount').value)||0,tax=Number(el('tax').value)||0,total=Math.max(0,subtotal-discount+tax);const warehouse=prompt('Warehouse ID');if(!warehouse)return;const method=prompt('طريقة الدفع: CASH / VISA / WALLET','CASH');if(!method)return;const amount=prompt(`المطلوب ${total.toFixed(2)} EGP\nالمبلغ المدفوع`,total.toFixed(2));if(amount===null)return;try{const r=await fetch('/api/pos/sales',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({warehouse_id:Number(warehouse),items:cart.map(x=>({product_id:x.id,quantity:x.qty,unit_price:x.price})),discount,tax,payments:[{method,amount}]})});const j=await r.json();if(!r.ok)throw new Error(j.error||'فشل إصدار الفاتورة');alert(`تم إصدار ${j.data.invoice_number}\nالإجمالي: ${j.data.total} EGP`);cart.splice(0);render();}catch(e){alert(e.message)}};render();
+</script>
+{% endblock %}

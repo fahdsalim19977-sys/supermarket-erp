@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import Brand, Category, InventoryStock, Product, ProductBarcode, Unit, Warehouse
+from app.models import Brand, Category, Product, ProductBarcode, Unit, Warehouse
 from app.services.inventory_service import adjust_stock
 
 products_bp = Blueprint("products", __name__, url_prefix="/products")
@@ -25,7 +25,8 @@ def index():
     if q:
         query = query.where((Product.name_ar.ilike(f"%{q}%")) | (Product.name_en.ilike(f"%{q}%")) | (Product.sku.ilike(f"%{q}%")))
     products = db.session.scalars(query.limit(100)).all()
-    return render_template("products/index.html", products=products, q=q)
+    warehouses = db.session.scalars(db.select(Warehouse).where(Warehouse.is_active.is_(True)).order_by(Warehouse.name)).all()
+    return render_template("products/index.html", products=products, warehouses=warehouses, q=q)
 
 
 @products_bp.route("/new", methods=["GET", "POST"])
@@ -36,12 +37,7 @@ def create():
     units = db.session.scalars(db.select(Unit).order_by(Unit.name_ar)).all()
     if request.method == "POST":
         try:
-            product = Product(
-                sku=request.form["sku"].strip(), name_ar=request.form["name_ar"].strip(), name_en=request.form.get("name_en", "").strip() or None,
-                category_id=int(request.form["category_id"]), brand_id=int(request.form["brand_id"]) if request.form.get("brand_id") else None,
-                unit_id=int(request.form["unit_id"]), purchase_price=_decimal(request.form.get("purchase_price")), selling_price=_decimal(request.form.get("selling_price")),
-                min_stock=_decimal(request.form.get("min_stock")), track_expiry="track_expiry" in request.form, track_batch="track_batch" in request.form,
-            )
+            product = Product(sku=request.form["sku"].strip(), name_ar=request.form["name_ar"].strip(), name_en=request.form.get("name_en", "").strip() or None, category_id=int(request.form["category_id"]), brand_id=int(request.form["brand_id"]) if request.form.get("brand_id") else None, unit_id=int(request.form["unit_id"]), purchase_price=_decimal(request.form.get("purchase_price")), selling_price=_decimal(request.form.get("selling_price")), min_stock=_decimal(request.form.get("min_stock")), track_expiry="track_expiry" in request.form, track_batch="track_batch" in request.form)
             db.session.add(product)
             db.session.flush()
             barcode = request.form.get("barcode", "").strip()
@@ -62,8 +58,7 @@ def stock_adjustment(product_id):
     try:
         warehouse_id = int(request.form["warehouse_id"])
         quantity = _decimal(request.form["quantity"])
-        movement_type = request.form.get("movement_type", "ADJUSTMENT")
-        adjust_stock(warehouse_id=warehouse_id, product_id=product_id, quantity=quantity, movement_type=movement_type, user_id=current_user.id, reason=request.form.get("reason"))
+        adjust_stock(warehouse_id=warehouse_id, product_id=product_id, quantity=quantity, movement_type=request.form.get("movement_type", "ADJUSTMENT"), user_id=current_user.id, reason=request.form.get("reason"))
         db.session.commit()
         flash("تم تحديث المخزون بنجاح", "success")
     except (ValueError, InvalidOperation) as exc:

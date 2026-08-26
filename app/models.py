@@ -47,7 +47,7 @@ class SystemSetting(TimestampMixin, db.Model):
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
-    id = db.Column(db.Integer, primary_key=True); user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True); action = db.Column(db.String(100), nullable=False, index=True); entity_type = db.Column(db.String(100), index=True); entity_id = db.Column(db.String(100), index=True); old_value = db.Column(db.JSON); new_value = db.Column(db.JSON); ip_address = db.Column(db.String(45)); created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    id = db.Column(db.BigInteger, primary_key=True); user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True); action = db.Column(db.String(100), nullable=False, index=True); entity_type = db.Column(db.String(100), index=True); entity_id = db.Column(db.String(100), index=True); old_value = db.Column(db.JSON); new_value = db.Column(db.JSON); ip_address = db.Column(db.String(45)); created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     user = db.relationship("User", backref=db.backref("audit_logs", lazy="dynamic"))
 
 class Category(TimestampMixin, db.Model):
@@ -80,11 +80,33 @@ class ProductBatch(TimestampMixin, db.Model):
 
 class InventoryStock(TimestampMixin, db.Model):
     __tablename__ = "inventory_stock"
-    id = db.Column(db.Integer, primary_key=True); warehouse_id = db.Column(db.Integer, db.ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True); product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True); batch_id = db.Column(db.Integer, db.ForeignKey("product_batches.id", ondelete="RESTRICT"), index=True); quantity = db.Column(db.Numeric(14, 3), default=0, nullable=False)
+    id = db.Column(db.BigInteger, primary_key=True); warehouse_id = db.Column(db.Integer, db.ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True); product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True); batch_id = db.Column(db.Integer, db.ForeignKey("product_batches.id", ondelete="RESTRICT"), index=True); quantity = db.Column(db.Numeric(14, 3), default=0, nullable=False)
     warehouse = db.relationship("Warehouse", back_populates="stocks"); product = db.relationship("Product", back_populates="stocks"); batch = db.relationship("ProductBatch")
     __table_args__ = (UniqueConstraint("warehouse_id", "product_id", "batch_id", name="uq_inventory_stock_location_product_batch"), CheckConstraint("quantity >= 0", name="ck_inventory_quantity_nonnegative"))
 
 class InventoryMovement(TimestampMixin, db.Model):
     __tablename__ = "inventory_movements"
-    id = db.Column(db.Integer, primary_key=True); warehouse_id = db.Column(db.Integer, db.ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True); product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True); batch_id = db.Column(db.Integer, db.ForeignKey("product_batches.id", ondelete="RESTRICT"), index=True); movement_type = db.Column(db.String(30), nullable=False, index=True); quantity = db.Column(db.Numeric(14, 3), nullable=False); reference_type = db.Column(db.String(40)); reference_id = db.Column(db.String(80)); reason = db.Column(db.String(255)); user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    id = db.Column(db.BigInteger, primary_key=True); warehouse_id = db.Column(db.Integer, db.ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True); product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True); batch_id = db.Column(db.Integer, db.ForeignKey("product_batches.id", ondelete="RESTRICT"), index=True); movement_type = db.Column(db.String(30), nullable=False, index=True); quantity = db.Column(db.Numeric(14, 3), nullable=False); reference_type = db.Column(db.String(40)); reference_id = db.Column(db.String(80)); reason = db.Column(db.String(255)); user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), index=True)
     __table_args__ = (CheckConstraint("quantity <> 0", name="ck_inventory_movement_nonzero"),)
+
+class Sale(TimestampMixin, db.Model):
+    __tablename__ = "sales"
+    id = db.Column(db.BigInteger, primary_key=True); invoice_number = db.Column(db.String(40), unique=True, nullable=False, index=True); warehouse_id = db.Column(db.Integer, db.ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True); user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True); customer_id = db.Column(db.BigInteger, nullable=True, index=True); subtotal = db.Column(db.Numeric(14, 3), default=0, nullable=False); discount = db.Column(db.Numeric(14, 3), default=0, nullable=False); tax = db.Column(db.Numeric(14, 3), default=0, nullable=False); total = db.Column(db.Numeric(14, 3), default=0, nullable=False); status = db.Column(db.String(20), default="COMPLETED", nullable=False, index=True)
+    items = db.relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan"); payments = db.relationship("SalePayment", back_populates="sale", cascade="all, delete-orphan")
+    __table_args__ = (CheckConstraint("subtotal >= 0", name="ck_sale_subtotal_nonnegative"), CheckConstraint("discount >= 0", name="ck_sale_discount_nonnegative"), CheckConstraint("tax >= 0", name="ck_sale_tax_nonnegative"), CheckConstraint("total >= 0", name="ck_sale_total_nonnegative"))
+
+class SaleItem(db.Model):
+    __tablename__ = "sale_items"
+    id = db.Column(db.BigInteger, primary_key=True); sale_id = db.Column(db.BigInteger, db.ForeignKey("sales.id", ondelete="CASCADE"), nullable=False, index=True); product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True); quantity = db.Column(db.Numeric(14, 3), nullable=False); unit_price = db.Column(db.Numeric(14, 3), nullable=False); discount = db.Column(db.Numeric(14, 3), default=0, nullable=False); line_total = db.Column(db.Numeric(14, 3), nullable=False)
+    sale = db.relationship("Sale", back_populates="items")
+
+class SalePayment(db.Model):
+    __tablename__ = "sale_payments"
+    id = db.Column(db.BigInteger, primary_key=True); sale_id = db.Column(db.BigInteger, db.ForeignKey("sales.id", ondelete="CASCADE"), nullable=False, index=True); method = db.Column(db.String(30), nullable=False); amount = db.Column(db.Numeric(14, 3), nullable=False); reference = db.Column(db.String(120))
+    sale = db.relationship("Sale", back_populates="payments")
+    __table_args__ = (CheckConstraint("amount > 0", name="ck_sale_payment_positive"),)
+
+class CashierShift(TimestampMixin, db.Model):
+    __tablename__ = "cashier_shifts"
+    id = db.Column(db.BigInteger, primary_key=True); user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True); warehouse_id = db.Column(db.Integer, db.ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True); opening_cash = db.Column(db.Numeric(14, 3), default=0, nullable=False); closing_cash = db.Column(db.Numeric(14, 3)); expected_cash = db.Column(db.Numeric(14, 3)); difference = db.Column(db.Numeric(14, 3)); opened_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False); closed_at = db.Column(db.DateTime(timezone=True)); status = db.Column(db.String(20), default="OPEN", nullable=False, index=True)
+    __table_args__ = (CheckConstraint("opening_cash >= 0", name="ck_shift_opening_cash_nonnegative"),)

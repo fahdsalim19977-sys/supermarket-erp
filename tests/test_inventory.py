@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from app import db
-from app.models import Branch, Category, Product, Unit, User, Warehouse
+from app.models import Branch, Category, InventoryStock, Product, Unit, User, Warehouse
 from app.services.inventory_service import adjust_stock
 
 
@@ -28,7 +28,7 @@ def test_stock_add_and_remove(app):
         adjust_stock(warehouse_id=warehouse_id, product_id=product_id, quantity=10, movement_type="PURCHASE", user_id=user_id)
         adjust_stock(warehouse_id=warehouse_id, product_id=product_id, quantity=-3, movement_type="SALE", user_id=user_id)
         db.session.commit()
-        stock = db.session.execute(db.select(__import__("app.models", fromlist=["InventoryStock"]).InventoryStock)).scalar_one()
+        stock = db.session.execute(db.select(InventoryStock)).scalar_one()
         assert Decimal(stock.quantity) == Decimal("7")
 
 

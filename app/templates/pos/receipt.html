@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt</title><style>@page{size:80mm auto;margin:3mm}body{width:72mm;margin:auto;font-family:Arial,sans-serif;font-size:12px}.center{text-align:center}.line{border-top:1px dashed #000;margin:7px 0}.item{display:flex;justify-content:space-between;gap:5px}.total{font-size:16px;font-weight:bold}@media print{.no-print{display:none}}</style></head>
+<body>
+<div class="center"><h3>NQ SUPERMARKET</h3><div>فاتورة بيع</div></div><div class="line"></div>
+<div>رقم الفاتورة: {{ receipt.invoice_number }}</div><div>التاريخ: {{ receipt.created_at }}</div><div class="line"></div>
+{% for item in receipt.items %}<div class="item"><span>{{ item.name }} × {{ item.quantity }}</span><span>{{ item.total }}</span></div>{% endfor %}
+<div class="line"></div><div class="item"><span>الإجمالي الفرعي</span><span>{{ receipt.subtotal }}</span></div><div class="item"><span>الخصم</span><span>{{ receipt.discount }}</span></div><div class="item"><span>الضريبة</span><span>{{ receipt.tax }}</span></div><div class="line"></div><div class="item total"><span>الإجمالي</span><span>{{ receipt.total }} EGP</span></div>
+<div class="center"><p>شكراً لتسوقكم معنا</p><button class="no-print" onclick="window.print()">طباعة</button></div>
+</body></html>
